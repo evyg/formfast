@@ -1,6 +1,6 @@
 import AWS from 'aws-sdk';
 import { createWorker } from 'tesseract.js';
-import * as pdfjsLib from 'pdfjs-dist';
+// import * as pdfjsLib from 'pdfjs-dist'; // Removed to fix server-side build issues
 import { 
   OCRCandidate, 
   TextractResponse, 

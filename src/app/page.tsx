@@ -1,3 +1,5 @@
+'use client';
+
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { FileDropzone } from '@/components/upload/file-dropzone';

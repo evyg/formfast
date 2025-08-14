@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/middleware';
 import { UploadService } from '@/lib/services';
-import { SimpleOCRService } from '@/lib/services/ocr-simple';
+import { OCRService } from '@/lib/services/ocr';
 import { ProcessOCRRequestSchema } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Process OCR
-    const ocrResult = await SimpleOCRService.processFile(
+    const ocrResult = await OCRService.processFile(
       fileBuffer,
       upload.original_filename,
       upload.mime_type
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Group nearby candidates for better field detection
-    const groupedCandidates = SimpleOCRService.groupNearbyCandidates(ocrResult.candidates);
+    const groupedCandidates = OCRService.groupNearbyCandidates(ocrResult.candidates);
 
     // Update upload with OCR results
     const ocrData = {

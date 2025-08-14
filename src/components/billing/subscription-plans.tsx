@@ -13,9 +13,10 @@ import {
   Loader2 
 } from 'lucide-react';
 import { logger } from '@/lib/services/logger';
+import { showToast } from '@/lib/toast';
 
 interface SubscriptionPlansProps {
-  currentPlan: 'free' | 'pro' | 'enterprise';
+  currentPlan: 'free' | 'individual' | 'family';
   userId: string;
 }
 
@@ -34,22 +35,28 @@ export function SubscriptionPlans({ currentPlan, userId }: SubscriptionPlansProp
         to_plan: planType,
       });
 
-      // In a real app, this would redirect to Stripe checkout or payment provider
-      // For now, we'll simulate the upgrade process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Create Stripe checkout session
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planId: planType,
+        }),
+      });
 
-      if (planType === 'enterprise') {
-        // Enterprise plans typically require sales contact
-        window.open('mailto:sales@formfast.com?subject=Enterprise Plan Inquiry', '_blank');
+      const result = await response.json();
+
+      if (result.success && result.data?.url) {
+        // Redirect to Stripe checkout
+        window.location.href = result.data.url;
       } else {
-        // TODO: Implement Stripe checkout or payment provider integration
-        console.log(`Initiating upgrade to ${planType} plan`);
-        
-        // Redirect to checkout page (placeholder)
-        // window.location.href = `/checkout?plan=${planType}`;
+        throw new Error(result.error || 'Failed to create checkout session');
       }
     } catch (error) {
       console.error('Upgrade error:', error);
+      showToast.error('Upgrade failed', 'Failed to start checkout process. Please try again.');
       logger.error('plan_upgrade_error', {
         user_id: userId,
         plan: planType,
@@ -69,9 +76,9 @@ export function SubscriptionPlans({ currentPlan, userId }: SubscriptionPlansProp
       period: 'month',
       description: 'Perfect for trying out FormFast',
       features: [
-        '100 credits per month',
-        'Standard processing speed',
-        'Basic OCR features',
+        '1 form credit',
+        'Basic OCR processing',
+        'Manual form filling',
         'Email support',
         'Web dashboard access'
       ],
@@ -80,43 +87,55 @@ export function SubscriptionPlans({ currentPlan, userId }: SubscriptionPlansProp
       disabled: currentPlan === 'free',
     },
     {
-      id: 'pro',
-      name: 'Pro',
-      price: 29,
+      id: 'individual',
+      name: 'Individual Plan',
+      price: 9,
       period: 'month',
-      description: 'For professionals and small businesses',
+      description: 'For individuals who process forms regularly',
       features: [
-        '1,000 credits per month',
-        'Priority processing',
-        'Advanced OCR features',
+        'Unlimited form processing',
+        'Cloud storage',
+        'AI-powered auto-fill',
         'Email support',
-        'API access',
-        'Batch processing',
-        'Custom export formats'
+        'PDF generation'
       ],
-      buttonText: currentPlan === 'pro' ? 'Current Plan' : 'Upgrade to Pro',
+      buttonText: currentPlan === 'individual' ? 'Current Plan' : 'Upgrade to Individual',
       popular: true,
-      disabled: currentPlan === 'pro',
+      disabled: currentPlan === 'individual',
     },
     {
-      id: 'enterprise',
-      name: 'Enterprise',
-      price: null,
-      period: null,
-      description: 'For large organizations with high volume',
+      id: 'family',
+      name: 'Family Plan',
+      price: 19,
+      period: 'month',
+      description: 'For families with multiple members',
       features: [
-        'Unlimited credits',
-        'Dedicated infrastructure',
-        'Custom integrations',
-        '24/7 phone support',
-        'SLA guarantee',
-        'On-premise deployment',
-        'Custom AI models',
-        'White-label options'
+        'Everything in Individual',
+        'Up to 5 family members',
+        'Shared form templates',
+        'Priority support',
+        '50GB storage'
       ],
-      buttonText: currentPlan === 'enterprise' ? 'Current Plan' : 'Contact Sales',
+      buttonText: currentPlan === 'family' ? 'Current Plan' : 'Upgrade to Family',
       popular: false,
-      disabled: currentPlan === 'enterprise',
+      disabled: currentPlan === 'family',
+    },
+    {
+      id: 'pay-as-you-go',
+      name: 'Pay-as-you-go',
+      price: 0.50,
+      period: 'form',
+      description: 'Pay only for what you use',
+      features: [
+        'Pay per form processed',
+        'No monthly commitment',
+        'Basic cloud storage',
+        'Email support',
+        'Perfect for occasional use'
+      ],
+      buttonText: 'Buy Credits',
+      popular: false,
+      disabled: false,
     },
   ];
 

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 interface BillingData {
-  plan: 'free' | 'pro' | 'enterprise';
+  plan: 'free' | 'individual' | 'family';
   credits_used: number;
   credits_limit: number;
   billing_period_start: string;

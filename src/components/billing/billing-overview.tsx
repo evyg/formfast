@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowUpCircle, Calendar, TrendingUp } from 'lucide-react';
 
 interface BillingData {
-  plan: 'free' | 'pro' | 'enterprise';
+  plan: 'free' | 'individual' | 'family';
   credits_used: number;
   credits_limit: number;
   billing_period_start: string;
@@ -138,20 +138,20 @@ export function BillingOverview({ billingData }: BillingOverviewProps) {
                 <li>• Email support</li>
               </>
             )}
-            {billingData.plan === 'pro' && (
+            {billingData.plan === 'individual' && (
               <>
-                <li>• 1,000 credits per month</li>
-                <li>• Priority processing</li>
-                <li>• Advanced OCR features</li>
+                <li>• Unlimited form processing</li>
+                <li>• Cloud storage</li>
+                <li>• AI-powered auto-fill</li>
                 <li>• Email support</li>
-                <li>• API access</li>
+                <li>• PDF generation</li>
               </>
             )}
-            {billingData.plan === 'enterprise' && (
+            {billingData.plan === 'family' && (
               <>
-                <li>• Unlimited credits</li>
-                <li>• Dedicated infrastructure</li>
-                <li>• Custom integrations</li>
+                <li>• Everything in Individual</li>
+                <li>• Up to 5 family members</li>
+                <li>• Shared form templates</li>
                 <li>• 24/7 phone support</li>
                 <li>• SLA guarantee</li>
               </>

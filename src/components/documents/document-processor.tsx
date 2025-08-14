@@ -11,6 +11,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { showToast } from '@/lib/toast';
+import { 
+  OCRProcessingSkeleton,
+  ClassificationSkeleton,
+  AutofillSkeleton,
+  PDFGenerationSkeleton
+} from '@/components/loading/processing-skeleton';
 import { 
   Eye, 
   Edit3, 
@@ -75,6 +82,7 @@ export function DocumentProcessor({ uploadId, initialOcrData }: DocumentProcesso
   const [classifiedFields, setClassifiedFields] = useState<ClassifiedField[]>([]);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [processing, setProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState<'ocr' | 'classify' | 'autofill' | 'pdf' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('process');
   
@@ -94,6 +102,7 @@ export function DocumentProcessor({ uploadId, initialOcrData }: DocumentProcesso
   const processOCR = async () => {
     try {
       setProcessing(true);
+      setProcessingStep('ocr');
       setError(null);
 
       const response = await fetch('/api/ocr', {
@@ -107,14 +116,20 @@ export function DocumentProcessor({ uploadId, initialOcrData }: DocumentProcesso
       if (result.success) {
         setOcrCandidates(result.candidates || []);
         setActiveTab('ocr');
+        showToast.ocrComplete(result.candidates?.length || 0);
       } else {
-        setError(result.error || 'OCR processing failed');
+        const errorMsg = result.error || 'OCR processing failed';
+        setError(errorMsg);
+        showToast.ocrError(errorMsg);
       }
     } catch (err) {
       console.error('OCR error:', err);
-      setError('Failed to process OCR');
+      const errorMsg = 'Failed to process OCR. Please try again.';
+      setError(errorMsg);
+      showToast.ocrError(errorMsg);
     } finally {
       setProcessing(false);
+      setProcessingStep(null);
     }
   };
 
@@ -123,6 +138,7 @@ export function DocumentProcessor({ uploadId, initialOcrData }: DocumentProcesso
     
     try {
       setProcessing(true);
+      setProcessingStep('classify');
       setError(null);
 
       const response = await fetch('/api/classify', {
@@ -139,14 +155,20 @@ export function DocumentProcessor({ uploadId, initialOcrData }: DocumentProcesso
       if (result.success) {
         setClassifiedFields(result.classified_fields || []);
         setActiveTab('fields');
+        showToast.success('Fields classified', `Found ${result.classified_fields?.length || 0} form fields`);
       } else {
-        setError(result.error || 'Field classification failed');
+        const errorMsg = result.error || 'Field classification failed';
+        setError(errorMsg);
+        showToast.error('Classification failed', errorMsg);
       }
     } catch (err) {
       console.error('Classification error:', err);
-      setError('Failed to classify fields');
+      const errorMsg = 'Failed to classify fields. Please try again.';
+      setError(errorMsg);
+      showToast.error('Classification failed', errorMsg);
     } finally {
       setProcessing(false);
+      setProcessingStep(null);
     }
   };
 
@@ -155,6 +177,7 @@ export function DocumentProcessor({ uploadId, initialOcrData }: DocumentProcesso
     
     try {
       setProcessing(true);
+      setProcessingStep('autofill');
       setError(null);
 
       const response = await fetch('/api/autofill', {
@@ -171,14 +194,20 @@ export function DocumentProcessor({ uploadId, initialOcrData }: DocumentProcesso
       if (result.success && result.data) {
         setFieldMappings(result.data.mappings || []);
         setActiveTab('autofill');
+        showToast.autofillComplete(result.data.mappings?.length || 0);
       } else {
-        setError(result.error || 'Auto-fill failed');
+        const errorMsg = result.error || 'Auto-fill failed';
+        setError(errorMsg);
+        showToast.error('Auto-fill failed', errorMsg);
       }
     } catch (err) {
       console.error('Auto-fill error:', err);
-      setError('Failed to auto-fill fields');
+      const errorMsg = 'Failed to auto-fill fields. Please try again.';
+      setError(errorMsg);
+      showToast.error('Auto-fill failed', errorMsg);
     } finally {
       setProcessing(false);
+      setProcessingStep(null);
     }
   };
 
@@ -233,6 +262,7 @@ export function DocumentProcessor({ uploadId, initialOcrData }: DocumentProcesso
   const generatePDF = async () => {
     try {
       setProcessing(true);
+      setProcessingStep('pdf');
       setError(null);
 
       const response = await fetch('/api/render-pdf', {
@@ -251,14 +281,20 @@ export function DocumentProcessor({ uploadId, initialOcrData }: DocumentProcesso
       if (result.success && result.data) {
         // Open the generated PDF in a new tab
         window.open(result.data.download_url, '_blank');
+        showToast.pdfGenerated();
       } else {
-        setError(result.error || 'PDF generation failed');
+        const errorMsg = result.error || 'PDF generation failed';
+        setError(errorMsg);
+        showToast.error('PDF generation failed', errorMsg);
       }
     } catch (err) {
       console.error('PDF generation error:', err);
-      setError('Failed to generate PDF');
+      const errorMsg = 'Failed to generate PDF. Please try again.';
+      setError(errorMsg);
+      showToast.error('PDF generation failed', errorMsg);
     } finally {
       setProcessing(false);
+      setProcessingStep(null);
     }
   };
 
@@ -403,6 +439,12 @@ export function DocumentProcessor({ uploadId, initialOcrData }: DocumentProcesso
                 </div>
               </CardContent>
             </Card>
+            
+            {/* Show processing skeletons when processing */}
+            {processing && processingStep === 'ocr' && <OCRProcessingSkeleton />}
+            {processing && processingStep === 'classify' && <ClassificationSkeleton />}
+            {processing && processingStep === 'autofill' && <AutofillSkeleton />}
+            {processing && processingStep === 'pdf' && <PDFGenerationSkeleton />}
           </TabsContent>
 
           <TabsContent value="ocr" className="space-y-4">

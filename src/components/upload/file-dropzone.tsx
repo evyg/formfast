@@ -6,6 +6,7 @@ import { Upload, File, X, AlertCircle } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { showToast } from '@/lib/toast';
 
 interface FileDropzoneProps {
   onFileSelect: (file: File) => void;
@@ -48,11 +49,17 @@ export function FileDropzone({
         if (rejection.errors?.length > 0) {
           const error = rejection.errors[0];
           if (error.code === 'file-too-large') {
-            setDragError(`File is too large. Maximum size is ${formatBytes(maxSize)}`);
+            const errorMsg = `File is too large. Maximum size is ${formatBytes(maxSize)}`;
+            setDragError(errorMsg);
+            showToast.fileUploadError(errorMsg);
           } else if (error.code === 'file-invalid-type') {
-            setDragError('Invalid file type. Please upload a PDF or image file.');
+            const errorMsg = 'Invalid file type. Please upload a PDF or image file.';
+            setDragError(errorMsg);
+            showToast.fileUploadError(errorMsg);
           } else {
-            setDragError('Invalid file. Please try again.');
+            const errorMsg = 'Invalid file. Please try again.';
+            setDragError(errorMsg);
+            showToast.fileUploadError(errorMsg);
           }
         }
         return;

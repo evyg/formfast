@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { logger } from '@/lib/services/logger';
 import { cn } from '@/lib/utils';
+import { showToast } from '@/lib/toast';
 
 interface UploadedFile {
   file: File;
@@ -47,6 +48,14 @@ export default function UploadPage() {
       // Handle rejected files
       rejectedFiles.forEach((rejection) => {
         const error = rejection.errors[0];
+        const errorMsg = error.code === 'file-too-large' 
+          ? 'File is too large. Maximum size is 50MB.'
+          : error.code === 'file-invalid-type'
+          ? 'Invalid file type. Please upload a PDF or image file.'
+          : 'Invalid file. Please try again.';
+        
+        showToast.fileUploadError(`${rejection.file.name}: ${errorMsg}`);
+        
         logger.error('file_rejected', {
           filename: rejection.file.name,
           error: error.message,
@@ -149,6 +158,8 @@ export default function UploadPage() {
               )
             );
 
+            showToast.fileUploadSuccess(fileUpload.file.name);
+
             logger.userAction('file_uploaded_success', {
               filename: fileUpload.file.name,
               upload_id: result.data.upload_id,
@@ -169,6 +180,8 @@ export default function UploadPage() {
                 : f
             )
           );
+
+          showToast.fileUploadError(`${fileUpload.file.name}: ${error.message}`);
 
           logger.error('file_upload_error', {
             filename: fileUpload.file.name,

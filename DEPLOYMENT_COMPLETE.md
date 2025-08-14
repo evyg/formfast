@@ -11,9 +11,11 @@ Your Supabase database is fully configured with:
 
 ## 🔧 Vercel Deployment Steps
 
-### Step 1: Add Environment Variables in Vercel Dashboard
+### Step 1: Add Environment Variables in Vercel Dashboard (CRITICAL)
 
-Go to your Vercel project settings and add these environment variables:
+**IMPORTANT**: You must add these environment variables in Vercel Dashboard BEFORE deploying. The deployment will fail with "references Secret which does not exist" error if these are not set.
+
+Go to your Vercel project settings → Environment Variables and add these variables:
 
 #### Required Variables
 
@@ -37,7 +39,17 @@ Go to your Vercel project settings and add these environment variables:
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_test_...` | For payments |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` | For Stripe webhooks |
 
-### Step 2: Update Supabase Auth Settings
+### Step 2: Run Environment Check Script (Optional)
+
+To verify you have all the required environment variables, run:
+
+```bash
+node scripts/check-env-vars.js
+```
+
+This will show you exactly what to add to Vercel and verify everything is configured correctly.
+
+### Step 3: Update Supabase Auth Settings
 
 1. Go to [Supabase Dashboard](https://supabase.com/dashboard/project/bbtgrbcznxwfsfkwnfdu/auth/url-configuration)
 2. Update **Site URL** to: `https://your-app.vercel.app`
@@ -45,7 +57,7 @@ Go to your Vercel project settings and add these environment variables:
    - `https://your-app.vercel.app/auth/callback`
    - `https://your-app.vercel.app/dashboard`
 
-### Step 3: Verify Deployment
+### Step 4: Verify Deployment
 
 Once deployed, test these features:
 
@@ -71,6 +83,12 @@ Once deployed, test these features:
 ## 🔍 Troubleshooting
 
 ### Common Issues
+
+**Deployment Error: "Environment Variable references Secret which does not exist":**
+- This means environment variables aren't set in Vercel Dashboard
+- Go to Vercel → Your Project → Settings → Environment Variables
+- Add all required variables listed above
+- Retry deployment
 
 **Build Errors:**
 - Check environment variables are set correctly

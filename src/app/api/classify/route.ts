@@ -5,6 +5,21 @@ import { ClassifyFieldsRequestSchema } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if required environment variables are available
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { success: false, error: 'Server configuration error: Missing Supabase environment variables' },
+        { status: 500 }
+      );
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { success: false, error: 'Server configuration error: Missing OpenAI API key' },
+        { status: 500 }
+      );
+    }
+
     // Get the authenticated user
     const { supabase, user } = await createClient(request);
 
@@ -77,11 +92,30 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Classification API error:', error);
 
-    if (error instanceof Error && error.name === 'ZodError') {
-      return NextResponse.json(
-        { success: false, error: 'Invalid request data' },
-        { status: 400 }
-      );
+    if (error instanceof Error) {
+      // Handle Zod validation errors
+      if (error.name === 'ZodError') {
+        return NextResponse.json(
+          { success: false, error: 'Invalid request data' },
+          { status: 400 }
+        );
+      }
+
+      // Handle Supabase configuration errors
+      if (error.message.includes('Missing Supabase environment variables')) {
+        return NextResponse.json(
+          { success: false, error: 'Server configuration error' },
+          { status: 500 }
+        );
+      }
+
+      // Handle OpenAI API errors
+      if (error.message.includes('OpenAI') || error.message.includes('API key')) {
+        return NextResponse.json(
+          { success: false, error: 'AI service temporarily unavailable' },
+          { status: 503 }
+        );
+      }
     }
 
     return NextResponse.json(

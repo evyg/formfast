@@ -2,6 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
+  "installCommand": "npm ci",
   "functions": {
     "app/api/upload/route.ts": {
       "maxDuration": 60
@@ -17,6 +18,13 @@
     },
     "app/api/render-pdf/route.ts": {
       "maxDuration": 60
+    }
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+      "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
+      "OPENAI_API_KEY": "@openai_api_key"
     }
   },
   "headers": [

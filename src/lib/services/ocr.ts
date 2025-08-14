@@ -1,6 +1,10 @@
 import AWS from 'aws-sdk';
 import { createWorker } from 'tesseract.js';
-// import * as pdfjsLib from 'pdfjs-dist'; // Removed to fix server-side build issues
+// Conditional import for pdfjs-dist to handle server-side compatibility
+let pdfjsLib: typeof import('pdfjs-dist') | null = null;
+
+// For server-side PDF processing, we'll skip pdfjs-dist and rely on alternative methods
+const isPDFProcessingAvailable = typeof window !== 'undefined';
 import { 
   OCRCandidate, 
   TextractResponse, 
@@ -74,6 +78,21 @@ export class OCRService {
     const candidates: OCRCandidate[] = [];
     
     try {
+      // For server-side processing, we'll fallback to AWS Textract or Tesseract
+      if (!isPDFProcessingAvailable) {
+        console.log('Server-side PDF processing: Using OCR fallback for PDF content');
+        // Convert PDF to image-like processing approach
+        return await this.processImage(fileBuffer, 'application/pdf');
+      }
+
+      // Client-side PDF processing with pdfjs-dist
+      if (!pdfjsLib) {
+        // Dynamically import pdfjs-dist for client-side usage
+        const pdfjs = await import('pdfjs-dist');
+        pdfjsLib = pdfjs;
+        pdfjs.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js';
+      }
+
       // Load PDF with pdf.js
       const pdf = await pdfjsLib.getDocument({ data: fileBuffer }).promise;
       const numPages = pdf.numPages;
@@ -130,8 +149,8 @@ export class OCRService {
         }
       }
 
-      // If no text found, try OCR on rendered pages
-      if (candidates.length === 0) {
+      // If no text found, try OCR on rendered pages (only in browser environment)
+      if (candidates.length === 0 && typeof document !== 'undefined') {
         for (let pageNum = 1; pageNum <= numPages; pageNum++) {
           const page = await pdf.getPage(pageNum);
           const canvas = document.createElement('canvas');
@@ -141,7 +160,10 @@ export class OCRService {
           canvas.height = viewport.height;
           canvas.width = viewport.width;
           
-          await page.render({ canvasContext: context, viewport }).promise;
+          await page.render({ 
+            canvasContext: context, 
+            viewport: viewport 
+          } as any).promise;
           
           const imageData = canvas.toDataURL('image/png');
           const pageBuffer = this.dataUrlToArrayBuffer(imageData);
@@ -149,6 +171,11 @@ export class OCRService {
           const pageCandidates = await this.processImage(pageBuffer, 'image/png', pageNum);
           candidates.push(...pageCandidates);
         }
+      }
+
+      // If still no candidates and we're server-side, return a meaningful message
+      if (candidates.length === 0 && typeof document === 'undefined') {
+        console.log('PDF contains no extractable text. Consider using image OCR for scanned PDFs.');
       }
 
     } catch (error) {
@@ -167,6 +194,23 @@ export class OCRService {
     mimeType: string,
     pageNumber: number = 1
   ): Promise<OCRCandidate[]> {
+    // Handle PDF files passed to this method (server-side fallback)
+    if (mimeType === 'application/pdf') {
+      console.log('Processing PDF through OCR fallback (server-side)');
+      // For PDFs, we can only use Textract on server-side
+      if (!this.DEV_MODE && fileBuffer.byteLength <= this.MAX_FILE_SIZE_TEXTRACT) {
+        try {
+          return await this.processWithTextract(fileBuffer);
+        } catch (error) {
+          console.error('Textract failed for PDF, no fallback available on server:', error);
+          return [];
+        }
+      } else {
+        console.warn('PDF OCR requires AWS Textract (DEV_MODE=false) or file size under 10MB');
+        return [];
+      }
+    }
+
     // Use AWS Textract if not in dev mode and file size is acceptable
     if (!this.DEV_MODE && fileBuffer.byteLength <= this.MAX_FILE_SIZE_TEXTRACT) {
       try {
@@ -207,7 +251,7 @@ export class OCRService {
     fileBuffer: ArrayBuffer,
     pageNumber: number = 1
   ): Promise<OCRCandidate[]> {
-    const worker = await createWorker();
+    const worker = await createWorker() as any;
     
     try {
       await worker.loadLanguage('eng');
@@ -230,7 +274,7 @@ export class OCRService {
   /**
    * Parse AWS Textract response
    */
-  private static parseTextractResponse(response: any): OCRCandidate[] {
+  private static parseTextractResponse(response: AWS.Textract.AnalyzeDocumentResponse): OCRCandidate[] {
     const candidates: OCRCandidate[] = [];
     
     if (!response.Blocks) {
@@ -238,7 +282,7 @@ export class OCRService {
     }
 
     // Process LINE blocks for text content
-    const lineBlocks = response.Blocks.filter((block: any) => block.BlockType === 'LINE');
+    const lineBlocks = response.Blocks.filter((block) => block.BlockType === 'LINE');
     
     for (const block of lineBlocks) {
       if (block.Text && block.Text.trim() && block.Geometry?.BoundingBox) {
@@ -250,10 +294,10 @@ export class OCRService {
           confidence: (block.Confidence || 0) / 100,
           bbox: {
             page: 1,
-            x: bbox.Left,
-            y: bbox.Top,
-            width: bbox.Width,
-            height: bbox.Height,
+            x: bbox.Left || 0,
+            y: bbox.Top || 0,
+            width: bbox.Width || 0,
+            height: bbox.Height || 0,
           },
           nearby_text: [],
         });
@@ -261,7 +305,7 @@ export class OCRService {
     }
 
     // Process KEY_VALUE_SET blocks for form fields
-    const keyValueBlocks = response.Blocks.filter((block: any) => 
+    const keyValueBlocks = response.Blocks.filter((block) => 
       block.BlockType === 'KEY_VALUE_SET'
     );
 
@@ -277,10 +321,10 @@ export class OCRService {
             confidence: (block.Confidence || 0) / 100,
             bbox: {
               page: 1,
-              x: bbox.Left,
-              y: bbox.Top,
-              width: bbox.Width,
-              height: bbox.Height,
+              x: bbox.Left || 0,
+              y: bbox.Top || 0,
+              width: bbox.Width || 0,
+              height: bbox.Height || 0,
             },
             nearby_text: [],
           });
@@ -295,16 +339,16 @@ export class OCRService {
    * Parse Tesseract response
    */
   private static parseTesseractResponse(
-    data: any,
+    data: Tesseract.RecognizeResult['data'],
     pageNumber: number
   ): OCRCandidate[] {
     const candidates: OCRCandidate[] = [];
 
-    if (!data.words) {
+    if (!(data as any).words) {
       return candidates;
     }
 
-    for (const word of data.words) {
+    for (const word of (data as any).words) {
       if (word.text.trim() && word.confidence > 30) { // Filter low confidence
         candidates.push({
           id: `tesseract-${pageNumber}-${word.bbox.x0}-${word.bbox.y0}`,
@@ -312,10 +356,10 @@ export class OCRService {
           confidence: word.confidence / 100,
           bbox: {
             page: pageNumber,
-            x: word.bbox.x0 / (data.width || 1),
-            y: word.bbox.y0 / (data.height || 1),
-            width: (word.bbox.x1 - word.bbox.x0) / (data.width || 1),
-            height: (word.bbox.y1 - word.bbox.y0) / (data.height || 1),
+            x: word.bbox.x0 / ((data as any).width || 1),
+            y: word.bbox.y0 / ((data as any).height || 1),
+            width: (word.bbox.x1 - word.bbox.x0) / ((data as any).width || 1),
+            height: (word.bbox.y1 - word.bbox.y0) / ((data as any).height || 1),
           },
           nearby_text: [],
         });
@@ -328,19 +372,19 @@ export class OCRService {
   /**
    * Extract text from Textract block relationships
    */
-  private static extractTextFromBlock(block: any, allBlocks: any[]): string {
+  private static extractTextFromBlock(block: AWS.Textract.Block, allBlocks: AWS.Textract.Block[]): string {
     if (!block.Relationships) {
       return '';
     }
 
     const childIds = block.Relationships
-      .filter((rel: any) => rel.Type === 'CHILD')
-      .flatMap((rel: any) => rel.Ids);
+      .filter((rel) => rel.Type === 'CHILD')
+      .flatMap((rel) => rel.Ids || []);
 
-    const childBlocks = allBlocks.filter(b => childIds.includes(b.Id));
+    const childBlocks = allBlocks.filter(b => b.Id && childIds.includes(b.Id));
     const words = childBlocks
       .filter(b => b.BlockType === 'WORD')
-      .map(b => b.Text)
+      .map(b => b.Text || '')
       .join(' ');
 
     return words.trim();

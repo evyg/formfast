@@ -1,8 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import type { Database } from './types';
 
 // Lazy initialization to avoid build-time errors
-let supabaseServerInstance: ReturnType<typeof createClient<Database>> | null = null;
+let supabaseServerInstance: ReturnType<typeof createSupabaseClient<Database>> | null = null;
 
 function createSupabaseServer() {
   if (supabaseServerInstance) {
@@ -18,7 +20,7 @@ function createSupabaseServer() {
     );
   }
 
-  supabaseServerInstance = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+  supabaseServerInstance = createSupabaseClient<Database>(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -29,9 +31,37 @@ function createSupabaseServer() {
 }
 
 // Export a proxy that creates the client only when accessed
-export const supabaseServer = new Proxy({} as ReturnType<typeof createClient<Database>>, {
+export const supabaseServer = new Proxy({} as ReturnType<typeof createSupabaseClient<Database>>, {
   get(target, prop) {
     const client = createSupabaseServer();
     return client[prop as keyof typeof client];
   }
 });
+
+// SSR-compatible client for auth callbacks and server components
+export async function createClient() {
+  const cookieStore = await cookies();
+
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
+    }
+  );
+}

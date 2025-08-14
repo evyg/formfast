@@ -1,5 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-// import * as pdfjsLib from 'pdfjs-dist'; // Removed to fix server-side build issues
+// pdfjs-dist not needed here - using pdf-lib for PDF manipulation
 import { supabaseServer } from '../supabase/server';
 import {
   ClassifiedField,

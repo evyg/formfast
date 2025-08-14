@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils';
 
 export interface LabelProps
   extends React.LabelHTMLAttributes<HTMLLabelElement> {
-  // This interface extends HTMLLabelElement attributes
+  // Custom label properties can be added here if needed
+  required?: boolean;
 }
 
 const Label = React.forwardRef<HTMLLabelElement, LabelProps>(

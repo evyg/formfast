@@ -1,4 +1,3 @@
-import { supabase } from '../supabase/client';
 import { supabaseServer } from '../supabase/server';
 import { CreateUpload, Upload, UploadFileRequest, UploadFileResponse } from '../types';
 import { z } from 'zod';
@@ -100,7 +99,7 @@ export class UploadService {
       const filePath = this.generateFilePath(userId, file.name);
 
       // Upload to storage
-      const { data, error: uploadError } = await supabase.storage
+      const { data, error: uploadError } = await supabaseServer.storage
         .from(this.UPLOAD_BUCKET)
         .upload(filePath, file, {
           cacheControl: '3600',
@@ -121,10 +120,11 @@ export class UploadService {
         original_filename: file.name,
         mime_type: file.type,
         file_size: file.size,
+        ocr_json: null,
         status: 'pending',
       };
 
-      const { data: dbData, error: dbError } = await supabase
+      const { data: dbData, error: dbError } = await supabaseServer
         .from('uploads')
         .insert([uploadData])
         .select()
@@ -133,7 +133,7 @@ export class UploadService {
       if (dbError) {
         console.error('Database insert error:', dbError);
         // Clean up storage file if database fails
-        await supabase.storage
+        await supabaseServer.storage
           .from(this.UPLOAD_BUCKET)
           .remove([filePath]);
         
@@ -193,7 +193,7 @@ export class UploadService {
    */
   static async getSignedUrl(filePath: string, expiresIn: number = 3600): Promise<string | null> {
     try {
-      const { data, error } = await supabase.storage
+      const { data, error } = await supabaseServer.storage
         .from(this.UPLOAD_BUCKET)
         .createSignedUrl(filePath, expiresIn);
 
@@ -221,7 +221,7 @@ export class UploadService {
       }
 
       // Delete from storage
-      const { error: storageError } = await supabase.storage
+      const { error: storageError } = await supabaseServer.storage
         .from(this.UPLOAD_BUCKET)
         .remove([upload.file_path]);
 
@@ -294,13 +294,13 @@ export class UploadService {
       const offset = (page - 1) * limit;
 
       // Get total count
-      const { count } = await supabase
+      const { count } = await supabaseServer
         .from('uploads')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId);
 
       // Get paginated results
-      const { data, error } = await supabase
+      const { data, error } = await supabaseServer
         .from('uploads')
         .select('*')
         .eq('user_id', userId)

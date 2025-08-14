@@ -5,7 +5,6 @@ import {
   Profile,
   HouseholdMember,
   SavedDate,
-  AutoFillRequest,
   AutoFillResponse,
 } from '../types';
 
@@ -62,7 +61,7 @@ export class AutoFillService {
     userId: string,
     householdMemberId?: string
   ): Promise<AutoFillResponse> {
-    const startTime = Date.now();
+    // const startTime = Date.now();
 
     try {
       // Get user context data
@@ -198,7 +197,7 @@ export class AutoFillService {
     const profile = context.profile;
     
     // Direct field matches
-    const directMatches: Record<string, any> = {
+    const directMatches: Record<string, unknown> = {
       'name': profile.full_name,
       'full_name': profile.full_name,
       'email': profile.email,
@@ -208,7 +207,7 @@ export class AutoFillService {
 
     // Address field matches
     if (profile.address && typeof profile.address === 'object') {
-      const address = profile.address as any;
+      const address = profile.address as Record<string, string>;
       Object.assign(directMatches, {
         'address': `${address.street || ''} ${address.city || ''} ${address.state || ''} ${address.zip || ''}`.trim(),
         'street': address.street,
@@ -407,9 +406,9 @@ export class AutoFillService {
 
     // Check custom fields
     if (member.custom_fields && typeof member.custom_fields === 'object') {
-      const customValue = (member.custom_fields as any)[key];
+      const customValue = (member.custom_fields as Record<string, unknown>)[key];
       if (customValue) {
-        return customValue;
+        return String(customValue);
       }
     }
 
@@ -511,7 +510,7 @@ export class AutoFillService {
   static async updateFieldMapping(
     uploadId: string,
     fieldId: string,
-    newValue: any,
+    newValue: unknown,
     saveToProfile: boolean = false,
     userId: string
   ): Promise<boolean> {
@@ -536,7 +535,7 @@ export class AutoFillService {
    */
   private static async saveValueToProfile(
     fieldKey: string,
-    value: any,
+    value: unknown,
     userId: string
   ): Promise<void> {
     try {

@@ -26,6 +26,7 @@ export const UploadFileResponseSchema = APIResponseSchema(
   })
 );
 
+
 // Auto-fill types
 export const AutoFillRequestSchema = z.object({
   upload_id: z.string().uuid(),

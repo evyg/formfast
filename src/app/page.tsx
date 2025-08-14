@@ -1,11 +1,30 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { FileDropzone } from '@/components/upload/file-dropzone';
 import { Upload, Zap, Shield, Smartphone } from 'lucide-react';
 
 export default function Home() {
+  const [demoFile, setDemoFile] = useState<File | null>(null);
+  const router = useRouter();
+
+  const handleDemoFileSelect = (file: File) => {
+    setDemoFile(file);
+    // Store the file in sessionStorage and redirect to signup with demo flag
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('demoFile', JSON.stringify({
+        name: file.name,
+        size: file.size,
+        type: file.type
+      }));
+      router.push('/signup?demo=true');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <Header />
@@ -24,22 +43,30 @@ export default function Home() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button size="lg" className="text-lg px-8 py-6">
-              Try Free Demo
-            </Button>
-            <Button variant="outline" size="lg" className="text-lg px-8 py-6">
-              Watch Demo
-            </Button>
+            <Link href="/signup">
+              <Button size="lg" className="text-lg px-8 py-6 w-full sm:w-auto">
+                Try Free Demo
+              </Button>
+            </Link>
+            <Link href="/dashboard/upload">
+              <Button variant="outline" size="lg" className="text-lg px-8 py-6 w-full sm:w-auto">
+                Upload Demo File
+              </Button>
+            </Link>
           </div>
 
           {/* Demo Upload Area */}
           <div className="max-w-md mx-auto">
             <FileDropzone 
-              onFileSelect={(file) => console.log('Demo file:', file)}
+              onFileSelect={handleDemoFileSelect}
+              selectedFile={demoFile}
               className="bg-white shadow-lg"
             />
             <p className="text-sm text-gray-500 mt-2">
-              Try uploading a PDF or image to see the magic ✨
+              {demoFile 
+                ? `Selected: ${demoFile.name} - Click "Try Free Demo" to continue!` 
+                : "Try uploading a PDF or image to see the magic ✨"
+              }
             </p>
           </div>
         </div>
@@ -157,12 +184,16 @@ export default function Home() {
             Join thousands of users who never fill the same form twice
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="text-lg px-8 py-6">
-              Start Free Trial
-            </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6 bg-transparent text-white border-white hover:bg-white hover:text-blue-600">
-              View Pricing
-            </Button>
+            <Link href="/signup">
+              <Button size="lg" variant="secondary" className="text-lg px-8 py-6 w-full sm:w-auto">
+                Start Free Trial
+              </Button>
+            </Link>
+            <Link href="/pricing">
+              <Button size="lg" variant="outline" className="text-lg px-8 py-6 bg-transparent text-white border-white hover:bg-white hover:text-blue-600 w-full sm:w-auto">
+                View Pricing
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

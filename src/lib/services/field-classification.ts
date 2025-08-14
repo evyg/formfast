@@ -34,6 +34,18 @@ export class FieldClassificationService {
         };
       }
 
+      // Check if OpenAI is available, otherwise use rule-based classification
+      if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.startsWith('sk-proj-') === false) {
+        console.log('OpenAI API not available, using rule-based field classification');
+        const ruleBasedFields = this.classifyFieldsRuleBased(candidates);
+        return {
+          success: true,
+          upload_id: '',
+          classified_fields: ruleBasedFields,
+          processing_time_ms: Date.now() - startTime,
+        };
+      }
+
       // Process in batches if needed
       const batches = this.createBatches(candidates, this.MAX_CANDIDATES_PER_REQUEST);
       let allClassifiedFields: ClassifiedField[] = [];
@@ -434,5 +446,85 @@ Prioritize accuracy and consistency in your classifications.`;
     }
 
     return merged;
+  }
+
+  /**
+   * Rule-based field classification (fallback when OpenAI unavailable)
+   */
+  private static classifyFieldsRuleBased(candidates: OCRCandidate[]): ClassifiedField[] {
+    const classifiedFields: ClassifiedField[] = [];
+
+    for (const candidate of candidates) {
+      const text = candidate.raw_text.toLowerCase().trim();
+      
+      // Skip empty or very short text
+      if (text.length < 2) continue;
+
+      let fieldType: FieldType = 'text';
+      let key = this.normalizeKey(candidate.raw_text);
+      let label = candidate.raw_text;
+      let required = false;
+
+      // Pattern matching for common field types
+      if (text.includes('name') || text.includes('full name')) {
+        fieldType = 'text';
+        key = text.includes('first') ? 'first_name' : 
+              text.includes('last') ? 'last_name' : 'full_name';
+        label = text.includes('first') ? 'First Name' :
+                text.includes('last') ? 'Last Name' : 'Full Name';
+        required = true;
+      } else if (text.includes('email') || text.includes('e-mail')) {
+        fieldType = 'email';
+        key = 'email';
+        label = 'Email Address';
+        required = true;
+      } else if (text.includes('phone') || text.includes('telephone') || text.includes('mobile')) {
+        fieldType = 'phone';
+        key = 'phone';
+        label = 'Phone Number';
+      } else if (text.includes('date') || text.includes('birth')) {
+        fieldType = 'date';
+        key = text.includes('birth') ? 'date_of_birth' : 'date';
+        label = text.includes('birth') ? 'Date of Birth' : 'Date';
+      } else if (text.includes('address') || text.includes('street')) {
+        fieldType = 'address';
+        key = 'address';
+        label = 'Address';
+      } else if (text.includes('signature') || text.includes('sign')) {
+        fieldType = 'signature';
+        key = 'signature';
+        label = 'Signature';
+      } else if (text.includes('☐') || text.includes('□') || text.includes('checkbox')) {
+        fieldType = 'checkbox';
+        key = `checkbox_${Date.now()}`;
+        label = 'Checkbox';
+      } else if (/^\d+$/.test(text) || text.includes('number') || text.includes('#')) {
+        fieldType = 'number';
+        key = 'number';
+        label = 'Number';
+      }
+
+      // Create classified field
+      const classifiedField: ClassifiedField = {
+        id: candidate.id,
+        key,
+        label,
+        type: fieldType,
+        required,
+        confidence: candidate.confidence * 0.8, // Lower confidence for rule-based
+        bbox: candidate.bbox,
+        raw_text: candidate.raw_text,
+        suggestions: this.generateSuggestions({
+          type: fieldType,
+          key,
+          raw_text: candidate.raw_text
+        } as ClassifiedField),
+        save_to_profile: this.shouldSaveToProfile(fieldType, key),
+      };
+
+      classifiedFields.push(classifiedField);
+    }
+
+    return this.validateAndEnhanceFields(classifiedFields);
   }
 }

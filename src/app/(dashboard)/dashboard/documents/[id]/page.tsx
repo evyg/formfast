@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { DocumentViewer } from '@/components/documents/document-viewer';
 import { DocumentActions } from '@/components/documents/document-actions';
+import { DocumentProcessor } from '@/components/documents/document-processor';
 
 interface Upload {
   id: string;
@@ -166,9 +167,9 @@ export default async function DocumentViewPage({
       </div>
 
       {/* Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Document Viewer */}
-        <div className="lg:col-span-2">
+        <div>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -200,9 +201,19 @@ export default async function DocumentViewPage({
           </Card>
         </div>
 
-        {/* Side Panel */}
-        <div className="space-y-6">
-          {/* Document Info */}
+        {/* Document Processing */}
+        <div>
+          <DocumentProcessor 
+            uploadId={document.id}
+            initialOcrData={document.ocr_json}
+          />
+        </div>
+      </div>
+
+      {/* Document Info Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Document Info */}
+        <div>
           <Card>
             <CardHeader>
               <CardTitle>Document Details</CardTitle>
@@ -243,8 +254,10 @@ export default async function DocumentViewPage({
               )}
             </CardContent>
           </Card>
+        </div>
 
-          {/* Processing Status */}
+        {/* Processing Status */}
+        <div>
           {document.status === 'processing' && (
             <Card>
               <CardHeader>
@@ -261,69 +274,6 @@ export default async function DocumentViewPage({
             </Card>
           )}
 
-          {/* OCR Results */}
-          {document.status === 'completed' && document.ocr_json && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Extracted Data</CardTitle>
-                <CardDescription>
-                  Text and data extracted from your document
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="text" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="text">Text</TabsTrigger>
-                    <TabsTrigger value="data">Data</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="text" className="mt-4">
-                    {document.ocr_json.text ? (
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">Extracted Text</span>
-                          <Button variant="outline" size="sm">
-                            <Copy className="mr-2 h-4 w-4" />
-                            Copy
-                          </Button>
-                        </div>
-                        <div className="p-3 bg-gray-50 rounded-md max-h-64 overflow-y-auto">
-                          <pre className="text-sm text-gray-800 whitespace-pre-wrap">
-                            {document.ocr_json.text}
-                          </pre>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500">No text extracted</p>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="data" className="mt-4">
-                    {document.ocr_json.structured_data ? (
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">Structured Data</span>
-                          <Button variant="outline" size="sm">
-                            <Download className="mr-2 h-4 w-4" />
-                            Export JSON
-                          </Button>
-                        </div>
-                        <div className="p-3 bg-gray-50 rounded-md max-h-64 overflow-y-auto">
-                          <pre className="text-sm text-gray-800">
-                            {JSON.stringify(document.ocr_json.structured_data, null, 2)}
-                          </pre>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500">No structured data available</p>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Error Info */}
           {document.status === 'failed' && (
             <Card>
               <CardHeader>
@@ -342,6 +292,45 @@ export default async function DocumentViewPage({
                     <ExternalLink className="mr-2 h-4 w-4" />
                     Contact Support
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* OCR Results Summary */}
+        <div>
+          {document.status === 'completed' && document.ocr_json && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Processing Results</CardTitle>
+                <CardDescription>
+                  Summary of extracted data
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Text Elements:</span>
+                    <span className="font-medium">
+                      {document.ocr_json.candidates?.length || 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Form Fields:</span>
+                    <span className="font-medium">
+                      {document.ocr_json.classified_fields?.length || 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Processing Time:</span>
+                    <span className="font-medium">
+                      {document.ocr_json.processing_time_ms 
+                        ? `${Math.round(document.ocr_json.processing_time_ms / 1000)}s`
+                        : 'N/A'
+                      }
+                    </span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
